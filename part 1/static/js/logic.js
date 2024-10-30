@@ -29,9 +29,13 @@ function createMarkers(earthquakes) {
             stroke: false
         }).addTo(map);
 
-        // Add popup with additional information
-        circleMarker.bindPopup(`<strong>Magnitude:</strong> ${magnitude}<br><strong>Depth:</strong> ${depth} km<br><a href="${feature.properties.url}" target="_blank">More Info</a>`);
+        // Add tooltip with additional information
+        circleMarker.bindTooltip(`<strong>Magnitude:</strong> ${magnitude}<br><strong>Depth:</strong> ${depth} km<br><a href="${feature.properties.url}" target="_blank">More Info</a>`, 
+            {
+            permanent: false, // Tooltip will only show on hover
+            sticky: true // Tooltip stays open while hovering over the marker
     });
+});
 }
 }
 
@@ -44,24 +48,34 @@ function getColor(depth) {
                          '#FFE895';  // yellow for depths <= 0
 }
 
-// Call the function to create markers
-//createMarkers(earthquakeData);
+// Call the function to create legend
 var legend = L.control({position: 'bottomright'});
 
 legend.onAdd = function () {
     var div = L.DomUtil.create('div', 'info legend'),
-        depths = [0, 20, 50, 100],
-        labels = [];
+        depths = [0, 20, 50, 100];
+
+    // Add a heading to the legend
+    div.innerHTML += '<h4>Magnitude of earthquake by depth</h4>'; // Change "Depth Legend" to your desired heading
+
+    // Create a container for the legend items
+    var itemContainer = L.DomUtil.create('div');
 
     for (var i = 0; i < depths.length; i++) {
-        div.innerHTML +=
+        var item = L.DomUtil.create('div', 'legend-item');
+        item.innerHTML =
             '<i style="background:' + getColor(depths[i] + 1) + '"></i> ' +
-            depths[i] + (depths[i + 1] ? '&ndash;' + depths[i + 1] + ' km<br>' : '+ km');
+            depths[i] + (depths[i + 1] ? '&ndash;' + depths[i + 1] + ' km' : '+ km');
+        itemContainer.appendChild(item);
     }
+
+    div.appendChild(itemContainer); // Append the item container to the legend
     return div;
 };
 
 legend.addTo(map);
+
+
 
 // Fetch the earthquake data
 fetch(earthquakeData)
