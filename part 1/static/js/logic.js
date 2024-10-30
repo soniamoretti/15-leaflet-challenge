@@ -1,43 +1,79 @@
-let myMap= L.map("map",{
-    center: [20.0, 5.0],
-    zoom: 2
-});
-
-// Add title layer
-L.titleLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(myMap);
+// Initialize the map
+var map = L.map('map').setView([0, 0], 2); // Center the map around the world
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+}).addTo(map);
 
 // Earthquake data url
 let earthquakeData = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson';
 
-// Function to determine the marker radius based on earthquake magnitude
-function getRadius(magnitude){
-    return magnitude ? magnitude * 4 : 1;
+
+// Define functions
+//Function to create markers on the map
+function createMarkers(earthquakes) {
+    if (earthquakes.features && Array.isArray(earthquakes.features)) {
+    earthquakes.features.forEach(feature => {
+        var coords = feature.geometry.coordinates;
+        var magnitude = feature.properties.mag;
+        var depth = coords[2];
+
+        // Determine marker size and color based on magnitude and depth
+        var markerSize = magnitude * 5; // Adjust size multiplier as needed
+        var markerColor = getColor(depth);
+
+        var circleMarker = L.circleMarker([coords[1], coords[0]], {
+            radius: markerSize,
+            fillColor: markerColor,
+            color: markerColor,
+            fillOpacity: 0.6,
+            stroke: false
+        }).addTo(map);
+
+        // Add popup with additional information
+        circleMarker.bindPopup(`<strong>Magnitude:</strong> ${magnitude}<br><strong>Depth:</strong> ${depth} km<br><a href="${feature.properties.url}" target="_blank">More Info</a>`);
+    });
+}
 }
 
-// function to determine the marker color based on the earthquake depth (green to red)
-function getColor(depth){
-    if (depth <= 10) return "#00FF00"; // green (shallow)*
-    else if (depth <= 30) return "#ADFF2F"; // light green*
-    else if (depth <= 50) return "#FFD580"; // light orange*
-    else if (depth <= 70) return "#FFA500"; // orange*
-    else if (depth <= 90) return "#FF4500"; // dark orange*
-    else return "#FF0000"; // red (deep)*
+// Function to get color based on depth
+function getColor(depth) {
+    return depth > 100 ? '#700e01' : // Deep red
+           depth > 50  ? '#d53600' : // red
+           depth > 20  ? '#ff8503' : // orange
+           depth > 0   ? '#feb204' : // medium yellow
+                         '#FFE895';  // yellow for depths <= 0
 }
 
-//Fetch earthquake data and plot ot on the map
-d3.json(earthquakeData).then(function (data){
-    let geojson = L.geoJSON(data,{
-        pointToLayer: function (feature, latlng){
-            return L.circleMarker(latlng,{
-                radius: getRadius(feature.properties.mag),
-                fillColor: getColor(feature.geometry.coordinates[2]),
-                color: '#000',
-                weight: 1,
-                opacity: 1, 
-                fillOpacity: 0.8
-            });
+// Call the function to create markers
+//createMarkers(earthquakeData);
+var legend = L.control({position: 'bottomright'});
+
+legend.onAdd = function () {
+    var div = L.DomUtil.create('div', 'info legend'),
+        depths = [0, 20, 50, 100],
+        labels = [];
+
+    for (var i = 0; i < depths.length; i++) {
+        div.innerHTML +=
+            '<i style="background:' + getColor(depths[i] + 1) + '"></i> ' +
+            depths[i] + (depths[i + 1] ? '&ndash;' + depths[i + 1] + ' km<br>' : '+ km');
+    }
+    return div;
+};
+
+legend.addTo(map);
+
+// Fetch the earthquake data
+fetch(earthquakeData)
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok ' + response.statusText);
         }
+        return response.json();
     })
-})
+    .then(data => {
+        createMarkers(data); // Pass the fetched data to createMarkers
+    })
+    .catch(error => {
+        console.error('Error fetching earthquake data:', error);
+    });
